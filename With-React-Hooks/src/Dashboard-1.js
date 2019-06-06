@@ -9,14 +9,6 @@ const isEqual = require("lodash.isequal");
 const differenceWith = require("lodash.differencewith");
 const omit = require("lodash.omit");
 
-function usePrevious(value) {
-  const ref = useRef();
-  useEffect(() => {
-    ref.current = value;
-  });
-  return ref;
-}
-
 const getEachStoryGivenId = (id, index) => {
   return new Promise((resolve, reject) => {
     axios
@@ -90,7 +82,7 @@ Get the story IDs
 Fetch the data for each of the stories
 Set the state array with all of the fetched story objects */
 
-  /*   const usePrevious = value => {
+  const usePrevious = value => {
     // console.log("ID VALUE IS - ", value);
     // The ref object is a generic container whose current property is mutable ...
     // ... and can hold any value, similar to an instance property on a class
@@ -99,70 +91,60 @@ Set the state array with all of the fetched story objects */
     // Store current value in ref
     useEffect(() => {
       ref.current = value;
-    });
+    }, [value]);
 
     // Return previous value (happens before update in useEffect above)
     return ref.current;
-  }; */
+  };
 
   const fromPrevStoriesIds = usePrevious(prevStoriesIds);
 
   useEffect(() => {
-    const fetchData = () => {
+    {
+      /*console.log("PREV STORYIDS ", prevStoriesIds);*/
+    }
+
+    axios
+      .get("https://hacker-news.firebaseio.com/v0/newstories.json")
+      .then(storyIds => {
+        console.log("STORY IDs FETCHED ", storyIds.data.slice(0, 2));
+
+        setPrevStoriesIds(storyIds.data.slice(0, 2));
+        getAllNewStory(storyIds);
+      });
+    const timer = setInterval(() => {
       axios
         .get("https://hacker-news.firebaseio.com/v0/newstories.json")
         .then(storyIds => {
-          //   console.log("STORY IDs FETCHED ", storyIds.data.slice(0, 2));
+          // Inside polling call
+          //   console.log("AFTER 10 SEC DATA", storyIds.data.slice(0, 4));
+          // If this new polling request after the set timeInterval, to the API, fetches different sets of story-IDs ONLY then I will set the state again and also show a snackbar. So the loader will ONLY show when there's a new story and so I am updating the table by setting state again, and calling the getAllNewStory function (and of-course, loader will also show when refreshing the page manually)
+          console.log(
+            "EQUAL: FALSE",
+            !isEqual(fromPrevStoriesIds, storyIds.data.slice(0, 2))
+          );
 
-          setPrevStoriesIds(storyIds.data.slice(0, 2));
-          getAllNewStory(storyIds);
-        });
-    };
-    fetchData();
-
-    const doPolling = () => {
-      var timer = setInterval(() => {
-        axios
-          .get("https://hacker-news.firebaseio.com/v0/newstories.json")
-          .then(storyIds => {
-            // Inside polling call
-            //   console.log("AFTER 10 SEC DATA", storyIds.data.slice(0, 4));
-            // If this new polling request after the set timeInterval, to the API, fetches different sets of story-IDs ONLY then I will set the state again and also show a snackbar. So the loader will ONLY show when there's a new story and so I am updating the table by setting state again, and calling the getAllNewStory function (and of-course, loader will also show when refreshing the page manually)
-            console.log(
-              "fromPrevStoriesIds INSIDE doPolling() ",
-              fromPrevStoriesIds.current
+          if (!isEqual(fromPrevStoriesIds, storyIds.data.slice(0, 2))) {
+            setPrevStoriesIds(storyIds.data.slice(0, 2));
+            setNoOfNewStoryAfterPolling(
+              differenceWith(
+                prevStoriesIds.sort(),
+                storyIds.data.slice(0, 2).sort(),
+                isEqual
+              ).length
             );
+            getAllNewStory(storyIds);
+            setOpenNewItemAddedConfirmSnackbar(true);
 
-            if (
-              fromPrevStoriesIds !== undefined &&
-              !isEqual(
-                fromPrevStoriesIds.current.sort(),
-                storyIds.data.slice(0, 2).sort()
-              )
-            ) {
-              setPrevStoriesIds(storyIds.data.slice(0, 2));
-              setNoOfNewStoryAfterPolling(
-                differenceWith(
-                  prevStoriesIds.sort(),
-                  storyIds.data.slice(0, 2).sort(),
-                  isEqual
-                ).length
-              );
-              getAllNewStory(storyIds);
-              setOpenNewItemAddedConfirmSnackbar(true);
+            // Inside polling call
+          }
+        });
+    }, 10000);
 
-              // Inside polling call
-            }
-          });
-      }, 10000);
+    return () => {
+      console.log("cleaning up");
+      clearInterval(timer);
     };
-
-    doPolling();
-
-    // return () => {
-    //   console.log("cleaning up");
-    //   clearInterval(timer);
-    // };
   }, [rowsPerPage, noOfNewStoryAfterPolling]);
 
   // Conditionally set the value of 'renderedStoriesOnPage' to show to the page view by executing the below IIFE -  for formatting the dates from UTC to human-readeable fomat - getDataToRender()
@@ -234,10 +216,7 @@ Set the state array with all of the fetched story objects */
 
   return (
     <React.Fragment>
-      {console.log(
-        "fromPrevStoriesIds INSIDE RETURN --- ",
-        fromPrevStoriesIds.current
-      )}
+      {console.log("PREV STORY IDs --- ", fromPrevStoriesIds)}
       <div
         style={{
           marginLeft: "15px",

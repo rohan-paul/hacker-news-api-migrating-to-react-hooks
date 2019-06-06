@@ -3,27 +3,29 @@ import axios from "axios";
 import MUIDataTable from "mui-datatables";
 import "./Dashboard.css";
 import NewItemAddedConfirmSnackbar from "./NewItemAddedConfirmSnackbar";
+import TextField from "@material-ui/core/TextField";
+import Button from "@material-ui/core/Button";
 const isEqual = require("lodash.isequal");
 const differenceWith = require("lodash.differencewith");
 const omit = require("lodash.omit");
 
 const getEachStoryGivenId = (id, index) => {
-  //   const storyRank = index + 1;
   return new Promise((resolve, reject) => {
     axios
       .get(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)
       .then(res => {
         let story = res.data;
-        let result = omit(story, ["descendants", "time"]);
-        console.log("THIS STORY", result);
+        console.log("RESPONSE IS ", story);
+        let result = omit(story, ["descendants", "time", "id", "type"]);
+        // console.log("THIS STORY", result);
         // add the storyRank field since it does not exist yet
         // story.storyRank = storyRank;
         if (
-          story &&
-          Object.entries(story).length !== 0 &&
-          story.constructor === Object
+          result &&
+          Object.entries(result).length !== 0 &&
+          result.constructor === Object
         ) {
-          resolve(story);
+          resolve(result);
         } else {
           reject(new Error("No data received"));
         }
@@ -53,7 +55,7 @@ export class Dashboard extends Component {
         .then(storyIds => {
           this.setState(
             {
-              prevStoriesIds: storyIds.data.slice(0, 20)
+              prevStoriesIds: storyIds.data.slice(0, 2)
             },
             () => {
               this.getAllNewStory(storyIds);
@@ -65,7 +67,7 @@ export class Dashboard extends Component {
 
   getAllNewStory = storyIds => {
     this.setState({ isLoading: true }, () => {
-      let topStories = storyIds.data.slice(0, 20).map(getEachStoryGivenId);
+      let topStories = storyIds.data.slice(0, 2).map(getEachStoryGivenId);
       let results = Promise.all(topStories);
       results
         .then(res => {
@@ -98,7 +100,7 @@ Set the state array with all of the fetched story objects */
       .then(storyIds => {
         this.setState(
           {
-            prevStoriesIds: storyIds.data.slice(0, 20)
+            prevStoriesIds: storyIds.data.slice(0, 2)
           },
           () => {
             this.getAllNewStory(storyIds);
@@ -109,20 +111,20 @@ Set the state array with all of the fetched story objects */
       axios
         .get("https://hacker-news.firebaseio.com/v0/newstories.json")
         .then(storyIds => {
-          console.log("AFTER 10 SEC DATA", storyIds.data.slice(0, 4));
+          //   console.log("AFTER 10 SEC DATA", storyIds.data.slice(0, 4));
           // If this new polling request after the set timeInterval, to the API, fetches different sets of story-IDs ONLY then I will set the state again and also show a snackbar. So the loader will ONLY show when there's a new story and so I am updating the table by setting state again, and calling the getAllNewStory function (and of-course, loader will also show when refreshing the page manually)
           if (
             !isEqual(
               this.state.prevStoriesIds.sort(),
-              storyIds.data.slice(0, 20).sort()
+              storyIds.data.slice(0, 2).sort()
             )
           ) {
             this.setState(
               {
-                prevStoriesIds: storyIds.data.slice(0, 20),
+                prevStoriesIds: storyIds.data.slice(0, 2),
                 noOfNewStoryAfterPolling: differenceWith(
                   this.state.prevStoriesIds.sort(),
-                  storyIds.data.slice(0, 20).sort(),
+                  storyIds.data.slice(0, 2).sort(),
                   isEqual
                 ).length
               },
@@ -135,7 +137,7 @@ Set the state array with all of the fetched story objects */
             );
           }
         });
-    }, 100000);
+    }, 1000000);
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -151,7 +153,7 @@ Set the state array with all of the fetched story objects */
         .then(storyIds => {
           this.setState(
             {
-              prevStoriesIds: storyIds.data.slice(0, 20)
+              prevStoriesIds: storyIds.data.slice(0, 2)
             },
             () => {
               this.getAllNewStory(storyIds);
@@ -167,13 +169,20 @@ Set the state array with all of the fetched story objects */
   }
 
   render() {
-    const { fetchedData, isLoading } = this.state;
+    const {
+      fetchedData,
+      isLoading,
+      list,
+      searchTerm,
+      searchKey,
+      error,
+      sortKey
+    } = this.state;
 
     // Conditionally set the value of 'renderedStoriesOnPage' to show to the page view by executing the below IIFE -  for formatting the dates from UTC to human-readeable fomat - getDataToRender()
     let renderedStoriesOnPage = [];
     const getDataToRender = (() => {
       renderedStoriesOnPage = fetchedData.map(i => {
-        i.time = new Date(i.time * 1000).toString();
         return Object.values(i);
       });
       return renderedStoriesOnPage;
@@ -192,48 +201,23 @@ Set the state array with all of the fetched story objects */
             this.state.tableState.columns[0].sortDirection
           : null
       },
+
       {
-        name: "descendants",
+        name: "score",
         sortDirection: this.state.tableState
           ? this.state.tableState.columns &&
             this.state.tableState.columns[1].sortDirection
           : null
       },
+
       {
-        name: "id",
+        name: "title",
         sortDirection: this.state.tableState
           ? this.state.tableState.columns &&
             this.state.tableState.columns[2].sortDirection
           : null
       },
-      {
-        name: "score",
-        sortDirection: this.state.tableState
-          ? this.state.tableState.columns &&
-            this.state.tableState.columns[3].sortDirection
-          : null
-      },
-      {
-        name: "time",
-        sortDirection: this.state.tableState
-          ? this.state.tableState.columns &&
-            this.state.tableState.columns[4].sortDirection
-          : null
-      },
-      {
-        name: "title",
-        sortDirection: this.state.tableState
-          ? this.state.tableState.columns &&
-            this.state.tableState.columns[5].sortDirection
-          : null
-      },
-      {
-        name: "type",
-        sortDirection: this.state.tableState
-          ? this.state.tableState.columns &&
-            this.state.tableState.columns[6].sortDirection
-          : null
-      },
+
       {
         name: "URL",
         options: {
@@ -248,7 +232,6 @@ Set the state array with all of the fetched story objects */
           }
         }
       }
-      //   { name: "storyRank" }
     ];
 
     const options = {
@@ -274,34 +257,44 @@ Set the state array with all of the fetched story objects */
 
     return (
       <React.Fragment>
-        <div style={{ marginLeft: "25px", marginTop: "80px" }}>
-          <h4>Hacker News top 2</h4>
+        <div
+          style={{
+            marginLeft: "15px",
+            marginTop: "80px",
+            display: "flex",
+            flexDirection: "row"
+          }}
+        >
+          <h4 style={{ width: "400px", paddingRight: "15px" }}>
+            Hacker News top 2
+          </h4>
         </div>
-
-        {isLoading ? (
-          <div className="interactions">
-            <div className="lds-ring">
-              <div />
-              <div />
-              <div />
-              <div />
+        <div>
+          {isLoading ? (
+            <div className="interactions">
+              <div className="lds-ring">
+                <div />
+                <div />
+                <div />
+                <div />
+              </div>
             </div>
-          </div>
-        ) : fetchedData.length !== 0 && renderedStoriesOnPage.length !== 0 ? (
-          <MUIDataTable
-            title={"Hacker News API top 20 result"}
-            data={renderedStoriesOnPage}
-            columns={columnsOptions}
-            options={options}
+          ) : fetchedData.length !== 0 && renderedStoriesOnPage.length !== 0 ? (
+            <MUIDataTable
+              title={"Hacker News API top 2 result"}
+              data={renderedStoriesOnPage}
+              columns={columnsOptions}
+              options={options}
+            />
+          ) : null}
+          <NewItemAddedConfirmSnackbar
+            openNewItemAddedConfirmSnackbar={
+              this.state.openNewItemAddedConfirmSnackbar
+            }
+            closeNewItemConfirmSnackbar={this.closeNewItemConfirmSnackbar}
+            noOfNewStoryAfterPolling={this.state.noOfNewStoryAfterPolling}
           />
-        ) : null}
-        <NewItemAddedConfirmSnackbar
-          openNewItemAddedConfirmSnackbar={
-            this.state.openNewItemAddedConfirmSnackbar
-          }
-          closeNewItemConfirmSnackbar={this.closeNewItemConfirmSnackbar}
-          noOfNewStoryAfterPolling={this.state.noOfNewStoryAfterPolling}
-        />
+        </div>
       </React.Fragment>
     );
   }
@@ -311,9 +304,9 @@ export default Dashboard;
 
 /* A> Notes on Object.assign -
 To Merge multiple sources
-let a = Object.assign({foo: 0}, {bar: 1}, {baz: 20});
+let a = Object.assign({foo: 0}, {bar: 1}, {baz: 2});
 ChromeSamples.log(a);
-Output => {foo: 0, bar: 1, baz: 20}
+Output => {foo: 0, bar: 1, baz: 2}
 
 In my case above, the existing state object < this.state > itself is an object with ky-value pairs of each story's parameters. So, basically I have to just merge three objects
 A> empty one {}
