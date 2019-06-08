@@ -9,25 +9,13 @@ const isEqual = require("lodash.isequal");
 const differenceWith = require("lodash.differencewith");
 const omit = require("lodash.omit");
 
-function usePrevious(value) {
-  const ref = useRef();
-  useEffect(() => {
-    ref.current = value;
-  });
-  return ref;
-}
-
 const getEachStoryGivenId = (id, index) => {
   return new Promise((resolve, reject) => {
     axios
       .get(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)
       .then(res => {
         let story = res.data;
-        // console.log("RESPONSE IS ", story);
         let result = omit(story, ["descendants", "time", "id", "type"]);
-        // console.log("THIS STORY", result);
-        // add the storyRank field since it does not exist yet
-        // story.storyRank = storyRank;
         if (
           result &&
           Object.entries(result).length !== 0 &&
@@ -82,7 +70,7 @@ const Dashboard = () => {
   };
 
   /*
-    /newstories: Provides a list of up to 500 story IDs, the newest first.
+The API endpoint - /newstories: Provides a list of up to 500 story IDs, the newest first.
   /item: On HackerNews, everything is an item. This could be a story, commend, job, even a poll.
   That means, that every time we fetch the newest stories from the API, we have to do at least two AJAX calls, to get all the information we need, and then update the state of the component.
 
@@ -90,10 +78,9 @@ Get the story IDs
 Fetch the data for each of the stories
 Set the state array with all of the fetched story objects */
 
-  /*   const usePrevious = value => {
-    // console.log("ID VALUE IS - ", value);
-    // The ref object is a generic container whose current property is mutable ...
-    // ... and can hold any value, similar to an instance property on a class
+  const usePrevious = value => {
+    // The ref object is a generic container whose current property is mutable
+    // And ref can hold any value, similar to an instance property on a class
     const ref = useRef();
 
     // Store current value in ref
@@ -102,10 +89,12 @@ Set the state array with all of the fetched story objects */
     });
 
     // Return previous value (happens before update in useEffect above)
-    return ref.current;
-  }; */
+    return ref;
+  };
 
   const fromPrevStoriesIds = usePrevious(prevStoriesIds);
+
+  const intervalRef = useRef();
 
   useEffect(() => {
     const fetchData = () => {
@@ -121,17 +110,11 @@ Set the state array with all of the fetched story objects */
     fetchData();
 
     const doPolling = () => {
-      var timer = setInterval(() => {
+      const timer = setInterval(() => {
         axios
           .get("https://hacker-news.firebaseio.com/v0/newstories.json")
           .then(storyIds => {
-            // Inside polling call
-            //   console.log("AFTER 10 SEC DATA", storyIds.data.slice(0, 4));
             // If this new polling request after the set timeInterval, to the API, fetches different sets of story-IDs ONLY then I will set the state again and also show a snackbar. So the loader will ONLY show when there's a new story and so I am updating the table by setting state again, and calling the getAllNewStory function (and of-course, loader will also show when refreshing the page manually)
-            console.log(
-              "fromPrevStoriesIds INSIDE doPolling() ",
-              fromPrevStoriesIds.current
-            );
 
             if (
               fromPrevStoriesIds !== undefined &&
@@ -143,29 +126,29 @@ Set the state array with all of the fetched story objects */
               setPrevStoriesIds(storyIds.data.slice(0, 2));
               setNoOfNewStoryAfterPolling(
                 differenceWith(
-                  prevStoriesIds.sort(),
+                  fromPrevStoriesIds.current.sort(),
                   storyIds.data.slice(0, 2).sort(),
                   isEqual
                 ).length
               );
               getAllNewStory(storyIds);
               setOpenNewItemAddedConfirmSnackbar(true);
-
-              // Inside polling call
             }
           });
       }, 10000);
+
+      intervalRef.current = timer;
     };
 
     doPolling();
 
-    // return () => {
-    //   console.log("cleaning up");
-    //   clearInterval(timer);
-    // };
+    return () => {
+      console.log("cleaning up");
+      clearInterval(intervalRef.current);
+    };
   }, [rowsPerPage, noOfNewStoryAfterPolling]);
 
-  // Conditionally set the value of 'renderedStoriesOnPage' to show to the page view by executing the below IIFE -  for formatting the dates from UTC to human-readeable fomat - getDataToRender()
+  // Conditionally set the value of 'renderedStoriesOnPage' to show to the page view by executing the below IIFE -  for formatting the dates from UTC to human-readeable format - getDataToRender()
   let renderedStoriesOnPage = [];
   const getDataToRender = (() => {
     renderedStoriesOnPage = fetchedData.map(i => {
@@ -173,9 +156,6 @@ Set the state array with all of the fetched story objects */
     });
     return renderedStoriesOnPage;
   })();
-
-  // const renderedStoriesOnPage =
-  //   fetchedData.length !== 0 ? fetchedData.map(i => Object.values(i)) : null;
 
   // For each of the column its sortDirection property will come from the app state (if the user has already changed the table and sorted a column) ELSE its set to null.
   // So this is where the requirement "Persistent Sorting" should have been implemented - "On every poll the current sorting option should remain unchanged e.g. if user has sorted the list of stories based on score then that order should remain unchanged"  - But due to an open issue on the package [Table sort is lost if data changed on a re-render](https://github.com/gregnb/mui-datatables/issues/305) - sorting is not getting persisted.
@@ -234,10 +214,6 @@ Set the state array with all of the fetched story objects */
 
   return (
     <React.Fragment>
-      {console.log(
-        "fromPrevStoriesIds INSIDE RETURN --- ",
-        fromPrevStoriesIds.current
-      )}
       <div
         style={{
           marginLeft: "15px",
@@ -292,5 +268,20 @@ B> this.state
 C> All the new story {fetchedData: res}
 }
 
-B> Using Promise.all(...) and chaining the update of the component’s state to the resulting Promise. This way, fetchNewStories will always wait until the data for all of the stories has been fetched, before updating the app’s state in one single call.
+A note on usage of Promise.all(…) above for chaining the update of the component's state to the resulting Promise.
+
+The Promise.all() takes an array (or any iterable) of promises and returns a single Promise that resolves when all of the promises passed as an iterable have resolved or when the iterable contains no promises. If any of the passed-in promises reject, Promise.all asynchronously rejects with the value of the promise that rejected, whether or not the other promises have resolved. 
+
+Promise.all() method is useful when we have multiple events and has to wait for more than one promise to complete which is the case here. 
+Also the returned values from Promise.all() will be in the order of the promises in the iterable regardless of the order of resolution of promises. This gives us a clue that the promise resolution follows a serial order of execution.
+
+So in this way, getAllNewStory() function will always wait until the data for all of the stories has been fetched, before updating the app's state in one single call. 
+Here's how it will work - The getEachStoryGivenId() function returns a Promise, which when resolved gives me the story of the given ID (passed in as the argument to getEachStoryGivenId )
+
+And then getAllNewStory() function will invoke the above as below 
+
+topStories = storyIds.data.slice(0, 2).map(getEachStoryGivenId);
+let results = Promise.all(topStories);
+
+So the variable result will wait until all the Promises have been resolved (or upto the first reject). And the result will have the PromiseValue
  */

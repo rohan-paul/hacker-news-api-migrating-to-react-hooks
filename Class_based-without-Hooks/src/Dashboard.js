@@ -9,6 +9,7 @@ const isEqual = require("lodash.isequal");
 const differenceWith = require("lodash.differencewith");
 const omit = require("lodash.omit");
 
+// This getEachStoryGivenId() function returns a Promise, which when resolved gives me the story of the given ID
 const getEachStoryGivenId = (id, index) => {
   //   const storyRank = index + 1;
   return new Promise((resolve, reject) => {
@@ -16,11 +17,7 @@ const getEachStoryGivenId = (id, index) => {
       .get(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)
       .then(res => {
         let story = res.data;
-        console.log("RESPONSE IS ", story);
         let result = omit(story, ["descendants", "time", "id", "type"]);
-        // console.log("THIS STORY", result);
-        // add the storyRank field since it does not exist yet
-        // story.storyRank = storyRank;
         if (
           result &&
           Object.entries(result).length !== 0 &&
@@ -70,6 +67,8 @@ export class Dashboard extends Component {
     this.setState({ isLoading: true }, () => {
       let topStories = storyIds.data.slice(0, 2).map(getEachStoryGivenId);
       let results = Promise.all(topStories);
+      //   console.log("RESOLVED RESULTS ", results);
+
       results
         .then(res => {
           this.setState(
@@ -318,6 +317,7 @@ B> this.state
 C> All the new story {fetchedData: res}
 }
 
-B> Using Promise.all(...) and chaining the update of the component’s state to the resulting Promise. This way, fetchNewStories will always wait until the data for all of the stories has been fetched, before updating the app’s state in one single call.
- */
+B> Using Promise.all(...) and chaining the update of the component’s state to the resulting Promise. This way, getAllNewStory() will always wait until the data for all of the stories has been fetched, before updating the app’s state in one single call.
 
+The Promise.all() method returns a single Promise that resolves when all of the promises passed as an iterable have resolved or when the iterable contains no promises. It rejects with the reason of the first promise that rejects.
+ */
