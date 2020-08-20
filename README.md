@@ -1,5 +1,3 @@
-#### [LIVE Demo]
-
 
 #### To launch this project in the local machine.
 
